@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>
+            Movies
+        </title>
+        <meta charset="UTF-8">
+        <style>
+            @media only screen and (max-width: 1920px){
+            body{
+                padding : 0% 15% 0% 15%;
+            }
+            #containerForMovies{
+                padding-top: 20px;
+            }
+            #movieLabel{
+                display: block;
+                width: 100%;    
+            }
+            .movieWithLabel{
+                display: inline-block;
+                width: 17.6%;
+                padding: 0% 1% 2% 1%;
+                vertical-align: top;
+                text-align: center;
+            }
+            p{
+                width: 100%;
+            }
+            img{
+                width: 75%;
+                height: auto;
+                cursor: pointer;
+            }
+            }
+            @media only screen and (max-width: 500px){
+                .movieWithLabel{
+                    display: block;
+                    width: 100%;
+                    padding: 10% 1% 10% 1%;
+                }
+            }
+            .movieInLibrary{
+                opacity: 0.5;
+            }
+            .containerForPoster{
+                position: relative;
+                width: 100%;
+                height: 100%;
+            }
+            .containerForOverlay{
+                position: absolute;
+                bottom: 0;
+                height: 10%;
+                width: 100%;
+                background: rgba(0, 0, 0, 0.5); /* Black see-through */
+                color: #f1f1f1; 
+                transition: .5s ease;
+                opacity:1;
+                color: white;
+                padding: 5% 0% 5% 0%;
+                text-align: center;
+            }
+            
+        </style>
+    </head>
+    <body>
+        <h4>Your movie library:</h4>
+        <div id="myLibrary"></div>
+        <label for="searchBox">Search for a movie:</label>
+        <input id="searchBox" type="text" onkeyup="updateSearch(event)" placeholder="By name or year">
+        
+        <div id="containerForMovies"></div>
+    </body>
+    <script>
+        function updateMyLibrary(){
+            libraryDiv = document.getElementById("myLibrary");
+            libraryDiv.innerHTML = '';
+            myLibrary = JSON.parse(localStorage.getItem("myLibrary"));
+            if(myLibrary === null)
+                libraryDiv.innerHTML = "No movies in your library, try adding some.";
+            else{
+                myLibrary.forEach(movie => {
+                        var containerForMovie = document.createElement('div');
+                        var poster = document.createElement('img');
+                        var movieLabel = document.createElement('a');
+
+                        poster.src = movie.poster_src;
+                        poster.alt = [movie.name, movie.year];
+                        movieLabel.innerHTML = movie.name + "(" + movie.year + ")";
+                        
+                        movieLabel.id = "movieLabel";
+                        containerForMovie.className = "movieWithLabel";
+                        
+                        containerForMovie.appendChild(poster);
+                        containerForMovie.appendChild(movieLabel);
+                        libraryDiv.appendChild(containerForMovie);
+                });
+            }
+        }
+
+        function updateSearch(event){
+            fetch('./static/movies.json')
+            .then(function(resp){
+                return resp.json();
+            })
+            .then(function(movieList){
+                const containerDiv = document.getElementById("containerForMovies");
+                containerDiv.innerHTML = '';
+                const searchItem = new RegExp(event.target.value, "i");  // i specifies that searches on this exp will be case insensetive
+                if(event.target.value === ''){
+                    containerDiv.innerHTML = '';
+                    return;
+                }
+                
+                for(movie of movieList){
+                    if(movie.name.search(searchItem) != -1 || movie.year.search(searchItem) != -1){
+                        var containerForMovie = document.createElement('div');
+                        var poster = document.createElement('img');
+                        var movieLabel = document.createElement('a');
+                        var containerForPoster = document.createElement("div");
+                        var containerForOverlay = document.createElement("div");
+                        
+                        containerForPoster.className = "containerForPoster";
+                        containerForOverlay.className = "containerForOverlay";
+
+                        // var summary = document.createElement('p');
+
+                        movieLabel.id = "movieLabel";
+                        containerForMovie.className = "movieWithLabel";
+
+                        poster.src = movie.poster_src;
+                        poster.alt = [movie.name, movie.year];
+                        movieLabel.innerHTML = movie.name + "(" + movie.year + ")";
+                        // summary.innerHTML = movie.summary;
+                        // movieLabel.href = movie.imdb_link;
+
+                        if(isInMyLibrary(movie) != -1){  // movie in search results is already in the library and should be deleted on click.
+                            poster.className = "inLibrary";
+                            poster.style.opacity = "0.6";
+                            containerForOverlay.innerHTML = "Already in library";
+                            containerForPoster.onclick = function(ev){
+                                onClickOfPoster(ev);
+                            };
+                        }
+                        else{
+                            containerForOverlay.className = "notInLibrary";
+                            containerForPoster.onclick = function(ev){
+                                onClickOfPoster(ev);
+                            };;
+                        }
+                        containerForPoster.appendChild(poster);
+                        containerForPoster.appendChild(containerForOverlay);
+                        containerForMovie.appendChild(containerForPoster);
+                        containerForMovie.appendChild(movieLabel);
+                        // containerForMovie.appendChild(summary);
+
+                        
+                        containerDiv.appendChild(containerForMovie);
+                    }
+                }
+                if(containerDiv.innerHTML === ''){
+                    containerDiv.innerHTML = "No movies found.";
+                }
+            });
+        }
+        function onClickOfPoster(ev){
+            console.log(ev.currentTarget);
+            if(ev.currentTarget.querySelector('.notInLibrary')=== null){
+                ev.currentTarget.querySelector('.containerForOverlay').innerHTML = "";
+                ev.currentTarget.querySelector('.containerForOverlay').className = "notInLibrary";
+            }
+            else{
+                ev.currentTarget.querySelector('.notInLibrary').innerHTML = "Added to library";
+                ev.currentTarget.querySelector('.notInLibrary').className = "containerForOverlay";    
+            }
+            
+            ev.target.style.opacity = '0.4';
+            console.log(ev.currentTarget.querySelector('img'));
+            movie = {"poster_src" : ev.currentTarget.querySelector('img').src, "name" : ev.currentTarget.querySelector('img').alt.split(",")[0], "year" : ev.currentTarget.querySelector('img').alt.split(",")[1]};
+            index = isInMyLibrary(movie);
+            if(index != -1){
+                //Delete movie from library as it's already selected
+                ev.target.style.opacity = '1';
+                myLibrary.splice(index, 1);
+                localStorage.setItem("myLibrary", JSON.stringify(myLibrary));
+                updateMyLibrary();
+                return;
+            }
+            myLibrary.push(movie);
+            localStorage.setItem("myLibrary", JSON.stringify(myLibrary));
+
+            updateMyLibrary();
+        }
+        function isInMyLibrary(movie){
+            myLibrary = JSON.parse(localStorage.getItem("myLibrary")) || [];
+            // by default movie is not in library hence -1
+            var index = -1;
+            myLibrary.forEach((movies, indexOfMovie) => {
+                if(movies.name == movie.name){
+                    index = indexOfMovie;
+                }
+            });
+            return index;
+        }
+        updateMyLibrary();
+    </script>
+</html>
